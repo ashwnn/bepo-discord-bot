@@ -43,4 +43,38 @@ class DockerClient:
                     print(f"Failed to unpause {container.name}: {e}")
         return resumed_count
 
+    def list_containers(self):
+        if not self.client:
+            return []
+        try:
+            return [c.name for c in self.client.containers.list(all=True)]
+        except Exception as e:
+            print(f"Failed to list containers: {e}")
+            return []
+
+    def restart_container(self, container_name: str):
+        if not self.client:
+            return "Docker client not initialized."
+        try:
+            container = self.client.containers.get(container_name)
+            container.restart()
+            return f"Successfully restarted {container_name}"
+        except docker.errors.NotFound:
+            return f"Container {container_name} not found."
+        except Exception as e:
+            return f"Failed to restart {container_name}: {e}"
+
+    def get_container_logs(self, container_name: str, tail: int = 20):
+        if not self.client:
+            return "Docker client not initialized."
+        try:
+            container = self.client.containers.get(container_name)
+            # logs returns bytes, need to decode
+            logs = container.logs(tail=tail).decode('utf-8')
+            return logs
+        except docker.errors.NotFound:
+            return f"Container {container_name} not found."
+        except Exception as e:
+            return f"Failed to get logs for {container_name}: {e}"
+
 docker_service = DockerClient()

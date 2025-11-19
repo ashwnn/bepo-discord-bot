@@ -9,6 +9,8 @@ FROM python:3.11-slim
 # It is usually available.
 RUN apt-get update && apt-get install -y \
     snapraid \
+    curl \
+    procps \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

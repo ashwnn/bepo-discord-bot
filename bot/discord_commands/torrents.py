@@ -1,6 +1,6 @@
 import discord
 from discord.ext import commands
-from discord.commands import slash_command, Option
+from discord.commands import SlashCommandGroup, Option
 from config import settings
 from services.qbittorrent_client import qbt_client
 import aiohttp
@@ -9,17 +9,13 @@ class Torrents(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
+    torrent = SlashCommandGroup("torrent", "Torrent management", guild_ids=[settings.DISCORD_GUILD_ID])
+
     def is_authorized(self, ctx):
-        # Basic check: is admin?
-        # Spec says: "Validate that the user is authorized."
-        # "Torrent add commands: allow admin and optionally anyone with a specific role."
-        # For now, let's restrict to admins as per the strictest interpretation, or maybe allow all if not specified?
-        # Spec: "DISCORD_ADMIN_USER_IDS"
-        # Let's allow admins.
         return ctx.author.id in settings.DISCORD_ADMIN_USER_IDS
 
-    @slash_command(guild_ids=[settings.DISCORD_GUILD_ID], description="Add a torrent from a URL")
-    async def torrent_add_link(
+    @torrent.command(name="add_link", description="Add a torrent from a URL")
+    async def add_link(
         self,
         ctx,
         url: Option(str, "Magnet link or HTTP/HTTPS URL"),
@@ -32,8 +28,6 @@ class Torrents(commands.Cog):
 
         try:
             result = qbt_client.add_link(url, category, save_path)
-            # qbittorrentapi returns 'Ok.' string on success usually, or raises exception?
-            # It actually returns text "Ok." if successful.
             if result == "Ok.":
                 await ctx.respond("Ok", ephemeral=True)
             else:
@@ -41,8 +35,8 @@ class Torrents(commands.Cog):
         except Exception as e:
             await ctx.respond(f"Error: {str(e)}", ephemeral=True)
 
-    @slash_command(guild_ids=[settings.DISCORD_GUILD_ID], description="Add a torrent from a file")
-    async def torrent_add_file(
+    @torrent.command(name="add_file", description="Add a torrent from a file")
+    async def add_file(
         self,
         ctx,
         file: Option(discord.Attachment, "Torrent file"),

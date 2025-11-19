@@ -17,7 +17,7 @@ extensions = [
     "discord_commands.torrents",
     "discord_commands.docker_control",
     "discord_commands.snapraid",
-    "discord_commands.filesystem",
+    "discord_commands.system",
 ]
 
 if __name__ == "__main__":
