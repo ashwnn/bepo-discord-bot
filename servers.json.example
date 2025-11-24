@@ -1,0 +1,66 @@
+{
+  "servers": [
+    {
+      "name": "homelab",
+      "display_name": "🏠 Homelab Server",
+      "connection": {
+        "host": "192.168.1.100",
+        "port": 22,
+        "user": "your_username",
+        "key_path": "/app/.ssh/id_rsa"
+      },
+      "features": ["docker", "snapraid", "qbittorrent", "filesystem"],
+      "config": {
+        "qbittorrent": {
+          "base_url": "http://localhost:8080",
+          "username": "admin",
+          "password": "your_password"
+        },
+        "snapraid": {
+          "conf_path": "/etc/snapraid.conf"
+        },
+        "filesystem": {
+          "paths": {
+            "pool": "/home/your_username/pool",
+            "media": "/home/your_username/pool/media",
+            "downloads": "/home/your_username/pool/downloads"
+          }
+        }
+      }
+    },
+    {
+      "name": "vps",
+      "display_name": "☁️ VPS Server",
+      "connection": {
+        "host": "vps.example.com",
+        "port": 22,
+        "user": "root",
+        "key_path": "/app/.ssh/id_rsa"
+      },
+      "features": ["docker"],
+      "config": {}
+    },
+    {
+      "name": "nas",
+      "display_name": "💾 NAS Server",
+      "connection": {
+        "host": "192.168.1.200",
+        "port": 22,
+        "user": "admin",
+        "key_path": "/app/.ssh/id_rsa"
+      },
+      "features": ["filesystem", "snapraid"],
+      "config": {
+        "snapraid": {
+          "conf_path": "/volume1/snapraid/snapraid.conf"
+        },
+        "filesystem": {
+          "paths": {
+            "storage": "/volume1/storage",
+            "backups": "/volume1/backups"
+          }
+        }
+      }
+    }
+  ]
+}

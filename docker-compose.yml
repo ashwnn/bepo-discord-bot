@@ -1,4 +1,4 @@
-version: "3.8"
+version: '3.8'
 
 services:
   discord-server-bot:
@@ -9,23 +9,23 @@ services:
       - .env
     restart: unless-stopped
     networks:
-      - apps
-    # Give the container access to host resources via bind mounts
+      - bot-network
     volumes:
-      - ${HOST_POOL_PATH}:${HOST_POOL_PATH}:ro
-      - ${SNAPRAID_CONF_PATH}:${SNAPRAID_CONF_PATH}:ro
-      - /var/run/docker.sock:/var/run/docker.sock
-      # SnapRAID needs access to the underlying data and parity disks.
-      # Assuming they are mounted under /mnt (e.g. /mnt/parity1, /mnt/disk1).
-      # We mount /mnt recursively. Remove :ro if you plan to use sync/fix.
-      - /mnt:/mnt
-
-    # Optional: constrain resources a bit
+      - ./bot:/app
+      - ./servers.json:/app/servers.json:ro
+      # Mount SSH private key for remote server access
+      # Create SSH key with: ssh-keygen -t rsa -b 4096 -f ~/.ssh/bepo_bot_key
+      # Then add the public key to authorized_keys on each managed server
+      - ~/.ssh/bepo_bot_key:/app/.ssh/id_rsa:ro
+    # Note: No longer mounting /var/run/docker.sock as we use SSH for remote Docker access
+    
+    # Optional: constrain resources
     deploy:
       resources:
         limits:
           cpus: "1.0"
           memory: 512M
+
 networks:
-  apps:
-    external: true
+  bot-network:
+    driver: bridge

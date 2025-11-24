@@ -1,30 +1,36 @@
+import secrets
 import time
-import uuid
 
 class ConfirmationManager:
     def __init__(self):
-        self.pending_actions = {}
+        self.pending = {}
 
-    def create(self, user_id: int, action_type: str, data: dict = None, timeout: int = 120) -> str:
-        token = str(uuid.uuid4())
-        self.pending_actions[token] = {
+    def create(self, user_id: int, action_type: str, **metadata) -> str:
+        """
+        Create a confirmation token
+        
+        Args:
+            user_id: Discord user ID
+            action_type: Type of action to confirm
+            **metadata: Additional metadata (e.g., server_name)
+            
+        Returns:
+            Confirmation token
+        """
+        token = secrets.token_urlsafe(16)
+        self.pending[token] = {
             "user_id": user_id,
             "action_type": action_type,
-            "data": data or {},
-            "expires_at": time.time() + timeout
+            "timestamp": time.time(),
+            **metadata
         }
         return token
 
-    def get(self, token: str):
-        action = self.pending_actions.get(token)
-        if action and action["expires_at"] > time.time():
+    def consume(self, token: str):
+        """Consume a token (returns action data or None if invalid/expired)"""
+        action = self.pending.pop(token, None)
+        if action and (time.time() - action["timestamp"]) < 120:
             return action
         return None
-
-    def consume(self, token: str):
-        action = self.get(token)
-        if action:
-            del self.pending_actions[token]
-        return action
 
 confirmation_manager = ConfirmationManager()

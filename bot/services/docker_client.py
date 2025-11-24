@@ -1,80 +1,142 @@
-import docker
-from config import settings
+from typing import List
+from config import ServerConfig
+from services.ssh_executor import ssh_executor
+
 
 class DockerClient:
-    def __init__(self):
-        try:
-            self.client = docker.from_env()
-        except docker.errors.DockerException as e:
-            print(f"Failed to initialize Docker client: {e}")
-            self.client = None
-
-    def pause_all(self):
-        if not self.client:
-            return "Docker client not initialized."
+    """Client for managing Docker containers on remote servers"""
+    
+    def __init__(self, server: ServerConfig):
+        """
+        Initialize Docker client for a specific server
         
+        Args:
+            server: Server configuration
+        """
+        self.server = server
+        self.server_name = server.name
+    
+    def _execute_docker_command(self, command: str, timeout: int = 30) -> tuple[str, str, int]:
+        """Execute a docker command on the remote server"""
+        full_command = f"docker {command}"
+        return ssh_executor.execute_command(self.server, full_command, timeout)
+    
+    def pause_all(self) -> int:
+        """
+        Pause all running Docker containers (except the bot itself)
+        
+        Returns:
+            Number of containers paused
+        """
+        # Get list of running containers
+        stdout, stderr, exit_code = self._execute_docker_command(
+            "ps --format '{{.Names}}' --filter status=running"
+        )
+        
+        if exit_code != 0:
+            print(f"Failed to list containers: {stderr}")
+            return 0
+        
+        container_names = [name.strip() for name in stdout.strip().split('\n') if name.strip()]
         paused_count = 0
-        for container in self.client.containers.list():
-            if container.status == "running":
-                # Don't pause ourselves!
-                # We can check container name or ID, but name is easier if we know it.
-                # In docker-compose we set container_name: discord-server-bot
-                if container.name == "discord-server-bot":
-                    continue
-                
-                try:
-                    container.pause()
-                    paused_count += 1
-                except Exception as e:
-                    print(f"Failed to pause {container.name}: {e}")
+        
+        for container_name in container_names:
+            # Don't pause the bot itself
+            if container_name == "discord-server-bot":
+                continue
+            
+            stdout, stderr, exit_code = self._execute_docker_command(f"pause {container_name}")
+            if exit_code == 0:
+                paused_count += 1
+            else:
+                print(f"Failed to pause {container_name}: {stderr}")
+        
         return paused_count
-
-    def resume_all(self):
-        if not self.client:
-            return "Docker client not initialized."
-
+    
+    def resume_all(self) -> int:
+        """
+        Resume all paused Docker containers
+        
+        Returns:
+            Number of containers resumed
+        """
+        # Get list of paused containers
+        stdout, stderr, exit_code = self._execute_docker_command(
+            "ps --format '{{.Names}}' --filter status=paused"
+        )
+        
+        if exit_code != 0:
+            print(f"Failed to list containers: {stderr}")
+            return 0
+        
+        container_names = [name.strip() for name in stdout.strip().split('\n') if name.strip()]
         resumed_count = 0
-        for container in self.client.containers.list(all=True):
-            if container.status == "paused":
-                try:
-                    container.unpause()
-                    resumed_count += 1
-                except Exception as e:
-                    print(f"Failed to unpause {container.name}: {e}")
+        
+        for container_name in container_names:
+            stdout, stderr, exit_code = self._execute_docker_command(f"unpause {container_name}")
+            if exit_code == 0:
+                resumed_count += 1
+            else:
+                print(f"Failed to unpause {container_name}: {stderr}")
+        
         return resumed_count
-
-    def list_containers(self):
-        if not self.client:
+    
+    def list_containers(self) -> List[str]:
+        """
+        List all Docker containers
+        
+        Returns:
+            List of container names
+        """
+        stdout, stderr, exit_code = self._execute_docker_command(
+            "ps -a --format '{{.Names}}'"
+        )
+        
+        if exit_code != 0:
+            print(f"Failed to list containers: {stderr}")
             return []
-        try:
-            return [c.name for c in self.client.containers.list(all=True)]
-        except Exception as e:
-            print(f"Failed to list containers: {e}")
-            return []
-
-    def restart_container(self, container_name: str):
-        if not self.client:
-            return "Docker client not initialized."
-        try:
-            container = self.client.containers.get(container_name)
-            container.restart()
+        
+        container_names = [name.strip() for name in stdout.strip().split('\n') if name.strip()]
+        return container_names
+    
+    def restart_container(self, container_name: str) -> str:
+        """
+        Restart a specific container
+        
+        Args:
+            container_name: Name of the container to restart
+            
+        Returns:
+            Status message
+        """
+        stdout, stderr, exit_code = self._execute_docker_command(f"restart {container_name}")
+        
+        if exit_code == 0:
             return f"Successfully restarted {container_name}"
-        except docker.errors.NotFound:
-            return f"Container {container_name} not found."
-        except Exception as e:
-            return f"Failed to restart {container_name}: {e}"
+        else:
+            if "No such container" in stderr:
+                return f"Container {container_name} not found."
+            return f"Failed to restart {container_name}: {stderr}"
+    
+    def get_container_logs(self, container_name: str, tail: int = 20) -> str:
+        """
+        Get logs for a specific container
+        
+        Args:
+            container_name: Name of the container
+            tail: Number of lines to retrieve
+            
+        Returns:
+            Container logs
+        """
+        stdout, stderr, exit_code = self._execute_docker_command(
+            f"logs --tail {tail} {container_name}"
+        )
+        
+        if exit_code == 0:
+            return stdout
+        else:
+            if "No such container" in stderr:
+                return f"Container {container_name} not found."
+            return f"Failed to get logs for {container_name}: {stderr}"
 
-    def get_container_logs(self, container_name: str, tail: int = 20):
-        if not self.client:
-            return "Docker client not initialized."
-        try:
-            container = self.client.containers.get(container_name)
-            # logs returns bytes, need to decode
-            logs = container.logs(tail=tail).decode('utf-8')
-            return logs
-        except docker.errors.NotFound:
-            return f"Container {container_name} not found."
-        except Exception as e:
-            return f"Failed to get logs for {container_name}: {e}"
-
-docker_service = DockerClient()

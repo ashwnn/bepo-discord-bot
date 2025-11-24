@@ -1,4 +1,4 @@
 py-cord
-qbittorrent-api
-docker
+python-qbittorrent
 python-dotenv
+paramiko>=3.0.0
